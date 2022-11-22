@@ -1,0 +1,9 @@
+[package]
+name = "copy"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+progress_bar = "1.0.3"
+structopt = "0.3"
+core = { path = "../core" }

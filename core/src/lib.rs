@@ -1,51 +1,31 @@
-use std::{path::PathBuf, env::args};
+use std::{path::PathBuf, io::{SeekFrom, Seek, Read, Write}, fs::File};
 
-use structopt::StructOpt;
-static mut LAST_BYTE_LOCATION: u64 = 0;
+use terminal_size::{terminal_size};
+pub fn get_col() -> u64
+{
+    let (width, _height) = terminal_size().unwrap();
+    width.0 as u64
+}
 
-pub fn readline(file: PathBuf, bytes: u64) -> (Vec<u8>, bool) {
-    use std::{
-        fs::File,
-        io::{Read, Seek, SeekFrom},
-    };
-    let mut byte_array = Vec::new();
+pub fn read_chunk(file:PathBuf,len:u64, offset: u64) -> (Vec<u8>, usize)
+{
+    let mut chunk = Vec::new();
     let mut input = File::open(file).unwrap();
-
-    // Seek to the start position
-    input
-        .seek(SeekFrom::Start(unsafe { LAST_BYTE_LOCATION } + 1))
+    input.seek(SeekFrom::Start(offset))
         .unwrap();
 
-    unsafe { LAST_BYTE_LOCATION += bytes }
-    // Create a reader with a fixed length
-    let mut chunk = input.take(bytes);
+    let read = input.take(len).read_to_end(&mut chunk).unwrap();
+    (chunk, read)
+}
 
-    let read = chunk.read_to_end(&mut byte_array).unwrap();
-    let mut eof = false;
-    if read < bytes as usize {
-        eof = true
+pub fn write_chunk(file:PathBuf,chunk:Vec<u8>, offset: u64) -> Result<usize, String>
+{
+    let mut input = File::open(file).unwrap();
+    input.seek(SeekFrom::Start(offset)).unwrap();
+
+    match input.write(&chunk)
+    {
+        Ok(x) => Ok(x),
+        Err(x) =>  Err(format!("Error: {}", x)),
     }
-    (byte_array, eof)
-}
-
-#[derive(StructOpt, Debug)]
-#[structopt(name = "plsplay")]
-struct Opt
-{
-    /// The audio file to play.
-    #[structopt(parse(from_str))]
-    file: PathBuf,
-
-    // Force the use of a pager.
-    #[structopt(long, short = "P")]
-    pager: bool,
-}
-
-pub fn get_args() -> (PathBuf, PathBuf, bool)
-{
-    let option = Opt::from_args();
-
-    let args: Vec<String> = args().collect();
-    let progname = PathBuf::from(PathBuf::from(args[0].clone()).file_name().unwrap());
-    (option.file, progname , option.pager)
 }
